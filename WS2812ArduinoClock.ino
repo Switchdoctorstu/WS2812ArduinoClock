@@ -1,6 +1,7 @@
-// hi/*
-tm xmit - 4S watch 13 jmp to 0x000
-// Stuarts code to drive Colourduino and TM1638 from GPS and DS1307 RTC
+// hi
+/*
+
+// Stuarts code to drive WS2812 clock from GPS and DS1307 RTC
 *	This code is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public
  *	License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.
  *	This library is distributed in the hope that it will be useful,
@@ -14,10 +15,10 @@ tm should always hold the current most valid time source
 
 // Reads GPS on serial 3
 // if GPS invalid:Reads the RTC 
-// Displays time on TM1638
+// Displays time on WS2812 60 segment ring
 // Handles reset of RTC
 // Handles button updates to RTC  < needs fixing
-// Sends display to array of 4 Colorduino displays on I2C
+
 
 Gets time from RTC or GPS receiver on Serial3
 Sends I2C Character & Raster to Colorduino Receiver
@@ -27,8 +28,6 @@ so many sources that i can't track them all.
 
 
 Currently working on:
-OK: make packets fixed length = 16 bytes
-OK: stx,type,index,data*11,chk,cr
 OK: sending char packets
 XX: BST offset
 OK: RF handler
@@ -89,26 +88,12 @@ OK: brightness
 #include <String.h>
 #include <SFE_BMP180.h>
 
-// RF includes
-#include <SPI.h>
-#include "printf.h"
-#include "nRF24L01.h"  // Radio Libraries
-#include "RF24.h" // Radio
 // watchdog
 #include <avr/wdt.h>
 
 
 // ************************************
 // Define Objects and variables
-// ************************************
-RF24 radio(RFCEPIN,RFCSNPIN); // define the RF transceiver
-// flip the send and receive definitions for remote nodes
-const uint64_t send_pipes[5] = { 0xF0F0F0F0D2LL, 0xF0F0F0F0C3LL, 0xF0F0F0F0B4LL, 0xF0F0F0F0A5LL, 0xF0F0F0F096LL };
-const uint64_t receive_pipes[5] = { 0x3A3A3A3AD2LL, 0x3A3A3A3AC3LL, 0x3A3A3A3AB4LL, 0x3A3A3A3AA5LL, 0x3A3A3A3A96LL };
-char RFpacketout[8]; // RF packet buffers
-char RFpacketin[8]; // RF packet buffers
-unsigned long RFinterval=60055; // 30 second RF poll
-unsigned long RFtimer; // Poll timer
 
 struct sRGB{
 	char r;
@@ -118,9 +103,6 @@ struct sRGB{
 
 typedef struct sRGB RGB;
 
-RGB pelcolour={0,0,0}; //picture element colour
-// TM1638(byte dataPin, byte clockPin, byte strobePin, boolean activateDisplay = true, byte intensity = 7);
-TM1638 dm (5, 6, 7);
 tmElements_t tm;   	// storage for time components
 time_t timeNow;    // storage for local clock
 
@@ -207,34 +189,6 @@ unsigned char matrix[256][3];
 
 int minifontwidth=3;
 int minifontheight=5;
-const unsigned char font3x5[][3]={
-	 { 0x00, 0x00, 0x00 },               /*   - 0x20 - 32 */
-        { 0x00, 0x29, 0x00 },               /* ! - 0x21 - 33 */ 
-        { 0x00, 0x29, 0x00 },               /* " - 0x22 - 34 */ 
-        { 0x31, 0x10, 0x31 },               /* # - 0x23 - 35 */
-        { 0x24, 0x2a, 0x7f },               /* $ - 0x24 - 36 */
-        { 0x23, 0x13, 0x08 },               /* % - 0x25 - 37 */
-        { 0x08, 0x14, 0x08 },               /* o degrees- 0x26 - 38 */
-        { 0x00, 0x05, 0x03 },               /* ' - 0x27 - 39 */
-        { 0x00, 0x1c, 0x22 },               /* ( - 0x28 - 40 */
-        { 0x00, 0x41, 0x22 },               /* ) - 0x29 - 41 */
-        { 0x14, 0x08, 0x3e },               /* * - 0x2a - 42 */
-        { 0x04, 0x31, 0x04 },               /* + - 0x2b - 43 */
-        { 0x00, 0x01, 0x02 },               /* , - 0x2c - 44 */
-        { 0x04, 0x04, 0x04 },               /* - - 0x2d - 45 */
-        { 0x00, 0x01, 0x00 },               /* . - 0x2e - 46 */
-        { 0x03, 0x04, 0x24 },               /* / - 0x2f - 47 */
-	{31,17,31}, // 0
-	{0,31,0}, // 1
-	{19,21,9}, // 2
-	{17,21,10}, //3
-	{28,4,31}, // 4
-	{29,21,22}, //5
-	{14,21,22},//6
-	{16,16,31},//7 
-	{31,21,31}, //8
-	{28,20,31} //9
-};
 
 const unsigned char font_5x7[][5] = { // Font Table
         { 0x00, 0x00, 0x00, 0x00, 0x00 },               /*   - 0x20 - 32 */
